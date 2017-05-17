@@ -71,7 +71,8 @@ if __name__ == '__main__':
     parser.add_argument('-l', '--log-dir', default='/tmp/mnist')
     parser.add_argument('-m', '--max-iter', type=int, default=1000)
     parser.add_argument('-b', '--batch-size', type=int, default=32)
-    parser.add_argument('-t', '--temperature', type=float, default=1.)
+    parser.add_argument('-t', '--temperature', type=float, default=1., help='softmax temperature for concrete relaxation')
+    parser.add_argument('-a', '--baseline', type=float, default=1. / 10., help='constant baseline for policy gradient')
     parser.add_argument('-o', '--objective', choices=['relaxed', 'supervised', 'sample'], default='supervised')
     parser.add_argument('-s', '--test-size', type=int, default=256)
 
@@ -92,7 +93,7 @@ if __name__ == '__main__':
     if args.objective == 'sample':
         # stochastic, policy gradient
         yhat = tf.squeeze(tf.multinomial(logits, 1), -1)
-        baseline = 1. / 10.
+        baseline = args.baseline
         r = tf.expand_dims(tf.cast(tf.equal(yhat, label_ph), 'float'), -1) - baseline
         # to maximize
         loss = -tf.reduce_sum(tf.nn.log_softmax(logits) * tf.one_hot(yhat, 10) * r, name='policy_gradient_loss') / batch_size
