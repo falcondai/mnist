@@ -75,6 +75,8 @@ if __name__ == '__main__':
     parser.add_argument('-a', '--baseline', type=float, default=1. / 10., help='constant baseline for policy gradient')
     parser.add_argument('-o', '--objective', choices=['relaxed', 'supervised', 'sample'], default='supervised')
     parser.add_argument('-s', '--test-size', type=int, default=256)
+    parser.add_argument('--summary-interval', type=int, default=32)
+    parser.add_argument('--test-interval', type=int, default=128)
 
     args = parser.parse_args()
 
@@ -87,6 +89,9 @@ if __name__ == '__main__':
             logits = gumbel_softmax(logits, args.temperature)
 
     variables = tf.trainable_variables()
+    print '* trainable variables:'
+    for v in variables:
+        print v
 
     # objective
     label_ph = tf.placeholder('int64', [None], 'labels')
@@ -166,7 +171,7 @@ if __name__ == '__main__':
                 label_ph: y,
             }
 
-            if gs % 128 == 0:
+            if gs % args.test_interval == 0:
                 # evaluate on the test split
                 test_feed = {
                     test_image_ph: test_x,
@@ -175,7 +180,7 @@ if __name__ == '__main__':
                 test_summary_val = test_summary_op.eval(feed_dict=test_feed)
                 writer.add_summary(test_summary_val, global_step=gs)
 
-            if gs % 32 == 0:
+            if gs % args.summary_interval == 0:
                 summary_val, _, gs = sess.run([summary_op, update_op, global_step], feed_dict=feed)
                 writer.add_summary(summary_val, global_step=gs)
             else:
