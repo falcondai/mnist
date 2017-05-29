@@ -1,3 +1,4 @@
+import importlib
 import numpy as np
 import tensorflow as tf
 from tensorflow.contrib.learn import datasets
@@ -10,50 +11,6 @@ def gumbel_softmax(x, temperature):
         logits = (x + g) / temperature
         # softmax with temperature
     return logits
-
-def build_model(images):
-    net = images
-    net = tf.contrib.layers.convolution2d(
-        inputs=images,
-        num_outputs=64,
-        kernel_size=(7, 7),
-        activation_fn=tf.nn.relu,
-        biases_initializer=tf.zeros_initializer(),
-        weights_initializer=tf.contrib.layers.xavier_initializer_conv2d(),
-        scope='conv1',
-    )
-
-    net = tf.contrib.layers.convolution2d(
-        inputs=net,
-        num_outputs=32,
-        kernel_size=(5, 5),
-        activation_fn=tf.nn.relu,
-        biases_initializer=tf.zeros_initializer(),
-        weights_initializer=tf.contrib.layers.xavier_initializer_conv2d(),
-        scope='conv2',
-    )
-
-    net = tf.contrib.layers.flatten(net)
-
-    net = tf.contrib.layers.fully_connected(
-        inputs=net,
-        num_outputs=128,
-        activation_fn=tf.nn.relu,
-        biases_initializer=tf.zeros_initializer(),
-        weights_initializer=tf.contrib.layers.xavier_initializer(),
-        scope='fc3',
-    )
-
-    net = tf.contrib.layers.fully_connected(
-        inputs=net,
-        num_outputs=10,
-        activation_fn=tf.nn.relu,
-        biases_initializer=tf.zeros_initializer(),
-        weights_initializer=tf.contrib.layers.xavier_initializer(),
-        scope='fc4',
-    )
-
-    return net
 
 
 class FastSaver(tf.train.Saver):
@@ -69,7 +26,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--lr', type=float, default=0.001)
     parser.add_argument('-l', '--log-dir', default='/tmp/mnist')
-    parser.add_argument('-m', '--max-iter', type=int, default=1000)
+    parser.add_argument('-n', '--max-iter', type=int, default=1000)
+    parser.add_argument('-m', '--model', default='cnn')
     parser.add_argument('-b', '--batch-size', type=int, default=32)
     parser.add_argument('-t', '--temperature', type=float, default=1., help='softmax temperature for concrete relaxation')
     parser.add_argument('-a', '--baseline', type=float, default=1. / 10., help='constant baseline for policy gradient')
@@ -78,8 +36,14 @@ if __name__ == '__main__':
     parser.add_argument('--summary-interval', type=int, default=32)
     parser.add_argument('--test-interval', type=int, default=128)
 
-    args = parser.parse_args()
+    args, extra = parser.parse_known_args()
 
+    model = importlib.import_module('models.%s' % args.model)
+    model_parser = model.build_parser()
+    model_args = model_parser.parse_args(extra)
+    build_model = lambda input: model.build_model(input, **vars(model_args))
+
+    # training
     image_ph = tf.placeholder('float', [None, 28, 28, 1], 'images')
     batch_size = tf.cast(tf.shape(image_ph)[0], 'float')
 
