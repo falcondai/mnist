@@ -38,6 +38,7 @@ if __name__ == '__main__':
 
     args, extra = parser.parse_known_args()
 
+    # import model parser and builder
     model = importlib.import_module('models.%s' % args.model)
     model_parser = model.build_parser()
     model_args = model_parser.parse_args(extra)
@@ -79,6 +80,8 @@ if __name__ == '__main__':
     update_op = optimizer.apply_gradients(zip(grads, variables), global_step=global_step)
 
     # summaries
+    tf.summary.scalar('train/variable_norm', tf.global_norm(variables))
+    tf.summary.scalar('train/gradient_norm', tf.global_norm(grads))
     tf.summary.scalar('train/loss', loss)
     tf.summary.scalar('train/learning_rate', args.lr)
     if args.objective == 'relaxed':
