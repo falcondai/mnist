@@ -19,22 +19,32 @@ def build_model(images, fc_width, activation):
         inputs=images,
         num_outputs=64,
         kernel_size=(7, 7),
-        stride=(2, 2),
         activation_fn=activation_fn,
         biases_initializer=tf.zeros_initializer(),
         weights_initializer=tf.contrib.layers.xavier_initializer_conv2d(),
         scope='conv1',
     )
 
+    net = tf.contrib.layers.max_pool2d(
+        inputs=net,
+        kernel_size=(5, 5),
+        stride=(2, 2),
+    )
+
     net = tf.contrib.layers.convolution2d(
         inputs=net,
         num_outputs=32,
         kernel_size=(5, 5),
-        stride=(2, 2),
         activation_fn=activation_fn,
         biases_initializer=tf.zeros_initializer(),
         weights_initializer=tf.contrib.layers.xavier_initializer_conv2d(),
         scope='conv2',
+    )
+
+    net = tf.contrib.layers.max_pool2d(
+        inputs=net,
+        kernel_size=(5, 5),
+        stride=(2, 2),
     )
 
     net = tf.contrib.layers.flatten(net)
