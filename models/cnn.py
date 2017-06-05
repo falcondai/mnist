@@ -13,7 +13,7 @@ def build_parser():
 
 def build_model(images, fc_width, activation):
     activation_fn = getattr(tf.nn, activation)
-    
+
     net = images
     net = tf.contrib.layers.convolution2d(
         inputs=images,
@@ -49,7 +49,7 @@ def build_model(images, fc_width, activation):
     net = tf.contrib.layers.fully_connected(
         inputs=net,
         num_outputs=10,
-        activation_fn=activation_fn,
+        activation_fn=None,
         biases_initializer=tf.zeros_initializer(),
         weights_initializer=tf.contrib.layers.xavier_initializer(),
         scope='fc4',
