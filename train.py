@@ -32,9 +32,9 @@ if __name__ == '__main__':
     parser.add_argument('-t', '--temperature', type=float, default=1., help='softmax temperature for concrete relaxation')
     parser.add_argument('-a', '--baseline', type=float, default=1. / 10., help='constant baseline for policy gradient')
     parser.add_argument('-o', '--objective', choices=['relaxed', 'supervised', 'sample'], default='supervised')
-    parser.add_argument('-s', '--test-size', type=int, default=256)
     parser.add_argument('--summary-interval', type=int, default=32)
     parser.add_argument('--test-interval', type=int, default=128)
+    # TODO add a train/val//test mode
 
     args, extra = parser.parse_known_args()
 
@@ -113,16 +113,20 @@ if __name__ == '__main__':
     correct_prediction = tf.equal(tf.argmax(test_logits, 1), test_label_ph)
     test_accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
 
+    # to placeholders to accumulate
+    test_loss_ph = tf.placeholder('float', [], 'test_loss_ph')
+    test_accuracy_ph = tf.placeholder('float', [], 'test_accuracy_ph')
     test_summary_op = tf.summary.merge([
-        tf.summary.scalar('test/loss', test_loss),
-        tf.summary.scalar('test/accuracy', test_accuracy),
+        tf.summary.scalar('test/loss', test_loss_ph),
+        tf.summary.scalar('test/accuracy', test_accuracy_ph),
     ])
 
     # load dataset
     # TODO switch to keras datasets to support a few more small datasets?
     mnist = datasets.load_dataset('mnist')
-    test_x, test_y = mnist.test.images[:args.test_size], mnist.test.labels[:args.test_size]
+    test_x, test_y = mnist.test.images, mnist.test.labels
     test_x = test_x.reshape(-1, 28, 28, 1)
+    n_test = len(test_x)
 
     writer = tf.summary.FileWriter(args.log_dir, flush_secs=10)
     saver = FastSaver(keep_checkpoint_every_n_hours=1, max_to_keep=2)
@@ -152,11 +156,24 @@ if __name__ == '__main__':
 
             if gs % args.test_interval == 0:
                 # evaluate on the test split
-                test_feed = {
-                    test_image_ph: test_x,
-                    test_label_ph: test_y,
-                }
-                test_summary_val = test_summary_op.eval(feed_dict=test_feed)
+                c_test_loss = 0.
+                c_test_acc = 0.
+                for i in xrange(int(np.ceil(n_test / args.batch_size))):
+                    start = i * args.batch_size
+                    end = min(n_test, start + args.batch_size)
+                    n_batch = end - start
+                    test_feed = {
+                        test_image_ph: test_x[start:end],
+                        test_label_ph: test_y[start:end],
+                    }
+                    test_batch_loss, test_batch_acc = sess.run([test_loss, test_accuracy], test_feed)
+                    c_test_loss += test_batch_loss * n_batch
+                    c_test_acc += test_batch_acc * n_batch
+
+                test_summary_val = test_summary_op.eval(feed_dict={
+                    test_loss_ph: c_test_loss / n_test,
+                    test_accuracy_ph: c_test_acc / n_test,
+                })
                 writer.add_summary(test_summary_val, global_step=gs)
 
             if gs % args.summary_interval == 0:
