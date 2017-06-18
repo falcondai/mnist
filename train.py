@@ -150,6 +150,8 @@ if __name__ == '__main__':
             if gs % args.summary_interval == 0:
                 summary_val, _, gs = sess.run([summary_op, update_op, global_step], feed_dict=feed)
                 writer.add_summary(summary_val, global_step=gs)
+                # save model
+                saver.save(sess, os.path.join(args.log_dir, 'model'), gs)
             else:
                 _, gs = sess.run([update_op, global_step], feed_dict=feed)
 
