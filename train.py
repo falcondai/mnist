@@ -41,8 +41,14 @@ if __name__ == '__main__':
     # import model parser and builder
     model = importlib.import_module('models.%s' % args.model)
     model_parser = model.build_parser()
-    model_args = model_parser.parse_args(extra)
+    model_args, extra = model_parser.parse_known_args(extra)
     build_model = lambda input: model.build_model(input, **vars(model_args))
+
+    # optimizer parameters
+    opt_parser = argparse.ArgumentParser()
+    opt_parser.add_argument('--optimizer', choices=['adam', 'sgd', 'rmsprop'], default='adam')
+    opt_args = opt_parser.parse_args(extra)
+    # TODO add more optimizer-specific arguments
 
     # training
     image_ph = tf.placeholder('float', [None, 28, 28, 1], 'images')
@@ -73,7 +79,12 @@ if __name__ == '__main__':
 
     # training
     global_step = tf.contrib.framework.get_or_create_global_step()
-    optimizer = tf.train.AdamOptimizer(
+    opt_dict = {
+        'adam': tf.train.AdamOptimizer,
+        'sgd': tf.train.GradientDescentOptimizer,
+        'rmsprop': tf.train.RMSPropOptimizer,
+    }
+    optimizer = opt_dict[opt_args.optimizer](
         learning_rate=args.lr,
     )
     grads = tf.gradients(loss * batch_size, variables)
@@ -108,6 +119,7 @@ if __name__ == '__main__':
     ])
 
     # load dataset
+    # TODO switch to keras datasets to support a few more small datasets?
     mnist = datasets.load_dataset('mnist')
     test_x, test_y = mnist.test.images[:args.test_size], mnist.test.labels[:args.test_size]
     test_x = test_x.reshape(-1, 28, 28, 1)
