@@ -35,6 +35,7 @@ if __name__ == '__main__':
     parser.add_argument('--summary-interval', type=int, default=32)
     parser.add_argument('--test-interval', type=int, default=128)
     # TODO add a train/val//test mode
+    # TODO add random seed and determinism
 
     args, extra = parser.parse_known_args()
 
@@ -170,6 +171,7 @@ if __name__ == '__main__':
                     c_test_loss += test_batch_loss * n_batch
                     c_test_acc += test_batch_acc * n_batch
 
+                print '%i test loss %g test accuracy %g' % (gs, c_test_loss / n_test, c_test_acc / n_test)
                 test_summary_val = test_summary_op.eval(feed_dict={
                     test_loss_ph: c_test_loss / n_test,
                     test_accuracy_ph: c_test_acc / n_test,
