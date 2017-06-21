@@ -47,7 +47,7 @@ if __name__ == '__main__':
 
     # optimizer parameters
     opt_parser = argparse.ArgumentParser()
-    opt_parser.add_argument('--optimizer', choices=['adam', 'sgd', 'rmsprop'], default='adam')
+    opt_parser.add_argument('--optimizer', choices=['adam', 'sgd', 'rmsprop', 'momentum'], default='adam')
     opt_args = opt_parser.parse_args(extra)
     # TODO add more optimizer-specific arguments
 
@@ -84,6 +84,7 @@ if __name__ == '__main__':
         'adam': tf.train.AdamOptimizer,
         'sgd': tf.train.GradientDescentOptimizer,
         'rmsprop': tf.train.RMSPropOptimizer,
+        'momentum': tf.train.MomentumOptimizer,
     }
     optimizer = opt_dict[opt_args.optimizer](
         learning_rate=args.lr,
@@ -129,6 +130,23 @@ if __name__ == '__main__':
     test_x = test_x.reshape(-1, 28, 28, 1)
     n_test = len(test_x)
 
+    def do_test():
+        c_test_loss = 0.
+        c_test_acc = 0.
+        for i in xrange(int(np.ceil(n_test / args.batch_size))):
+            start = i * args.batch_size
+            end = min(n_test, start + args.batch_size)
+            n_batch = end - start
+            test_feed = {
+                test_image_ph: test_x[start:end],
+                test_label_ph: test_y[start:end],
+            }
+            test_batch_loss, test_batch_acc = sess.run([test_loss, test_accuracy], test_feed)
+            c_test_loss += test_batch_loss * n_batch
+            c_test_acc += test_batch_acc * n_batch
+
+        return c_test_loss / n_test, c_test_acc / n_test
+
     writer = tf.summary.FileWriter(args.log_dir, flush_secs=10)
     saver = FastSaver(keep_checkpoint_every_n_hours=1, max_to_keep=2)
     sv = tf.train.Supervisor(
@@ -157,24 +175,11 @@ if __name__ == '__main__':
 
             if gs % args.test_interval == 0:
                 # evaluate on the test split
-                c_test_loss = 0.
-                c_test_acc = 0.
-                for i in xrange(int(np.ceil(n_test / args.batch_size))):
-                    start = i * args.batch_size
-                    end = min(n_test, start + args.batch_size)
-                    n_batch = end - start
-                    test_feed = {
-                        test_image_ph: test_x[start:end],
-                        test_label_ph: test_y[start:end],
-                    }
-                    test_batch_loss, test_batch_acc = sess.run([test_loss, test_accuracy], test_feed)
-                    c_test_loss += test_batch_loss * n_batch
-                    c_test_acc += test_batch_acc * n_batch
-
-                print '%i test loss %g test accuracy %g' % (gs, c_test_loss / n_test, c_test_acc / n_test)
+                test_loss_val, test_acc_val = do_test()
+                print '%i test loss %g test accuracy %g' % (gs, test_loss_val, test_acc_val)
                 test_summary_val = test_summary_op.eval(feed_dict={
-                    test_loss_ph: c_test_loss / n_test,
-                    test_accuracy_ph: c_test_acc / n_test,
+                    test_loss_ph: test_loss_val,
+                    test_accuracy_ph: test_acc_val,
                 })
                 writer.add_summary(test_summary_val, global_step=gs)
 
@@ -186,6 +191,9 @@ if __name__ == '__main__':
             else:
                 _, gs = sess.run([update_op, global_step], feed_dict=feed)
 
+        # last test
+        test_loss_val, test_acc_val = do_test()
+        print '%i test loss %g test accuracy %g' % (gs, test_loss_val, test_acc_val)
         # save the last model
         saver.save(sess, os.path.join(args.log_dir, 'model'), gs)
     writer.close()
