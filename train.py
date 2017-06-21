@@ -34,10 +34,15 @@ if __name__ == '__main__':
     parser.add_argument('-o', '--objective', choices=['relaxed', 'supervised', 'sample'], default='supervised')
     parser.add_argument('--summary-interval', type=int, default=32)
     parser.add_argument('--test-interval', type=int, default=128)
+    parser.add_argument('--use-seed', type=int, default=None)
     # TODO add a train/val//test mode
-    # TODO add random seed and determinism
 
     args, extra = parser.parse_known_args()
+
+    if args.use_seed is not None:
+        # use fixed random seed
+        np.random.seed(args.use_seed)
+        tf.set_random_seed(args.use_seed)
 
     # import model parser and builder
     model = importlib.import_module('models.%s' % args.model)
